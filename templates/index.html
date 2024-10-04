@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Grading System</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <style>
+        body {
+            margin: 50px;
+        }
+        .container {
+            max-width: 600px;
+        }
+        .subject-box {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">AI Grading System</h1>
+        
+        <!-- Random subject display -->
+        <div id="random-subject" class="subject-box">
+            <p><strong>Subject:</strong> <span id="subject-content">Loading subject...</span></p>
+            <button id="get-subject-btn" class="btn btn-primary">Get Random Subject</button>
+        </div>
+
+        <!-- Answer form -->
+        <form id="submission-form">
+            <div class="form-group">
+                <label for="student_work">Your Answer:</label>
+                <textarea id="student_work" name="student_work" class="form-control" rows="4" placeholder="Enter your answer here"></textarea>
+            </div>
+            <button type="submit" class="btn btn-success">Submit Answer</button>
+        </form>
+
+        <!-- Predicted grade display -->
+        <div id="result" class="alert alert-info mt-4" style="display:none;">
+            <strong>Predicted Grade:</strong> <span id="predicted-grade"></span>
+        </div>
+    </div>
+
+    <script>
+        // Fetch random subject from the server
+        document.getElementById('get-subject-btn').addEventListener('click', function() {
+            fetch('/get_subject')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('subject-content').textContent = data.subject;
+                })
+                .catch(error => console.error('Error fetching subject:', error));
+        });
+
+        // Handle form submission
+        document.getElementById('submission-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const student_work = document.getElementById('student_work').value;
+            
+            fetch('/submit_answer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({
+                    'student_work': student_work
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('predicted-grade').textContent = data.predicted_grade;
+                document.getElementById('result').style.display = 'block';
+            })
+            .catch(error => console.error('Error submitting answer:', error));
+        });
+    </script>
+</body>
+</html>
