@@ -30,7 +30,7 @@ def get_db_connection():
 def load_data():
     db = get_db_connection()
     cursor = db.cursor()
-    cursor.execute("SELECT student_work, grade FROM student_submissions")
+    cursor.execute("SELECT student_solution, grade FROM student_submissions")
     result = cursor.fetchall()
     student_works = [row[0] for row in result]
     grades = [str(row[1]) for row in result]
@@ -40,12 +40,14 @@ def load_data():
 # Function to train the model
 def train_model(pipeline):
     student_works, grades = load_data()
+    print(student_works)
+    print(grades)
     pipeline.fit(student_works, grades)
     return pipeline
 
 # Define the pipeline for model training
 pipeline = make_pipeline(TfidfVectorizer(max_features=500), SGDClassifier())
-pipeline = train_model(pipeline)
+# pipeline = train_model(pipeline)
 
 # Route for the home page
 @app.route('/')
@@ -57,7 +59,7 @@ def home():
 def get_subject():
     db = get_db_connection()
     cursor = db.cursor()
-    cursor.execute("SELECT student_work FROM student_submissions")
+    cursor.execute("SELECT equation FROM student_submissions ")
     student_works = cursor.fetchall()
     db.close()
 
@@ -84,4 +86,5 @@ def submit_answer():
 
 # Run the Flask app
 if __name__ == '__main__':
+    # print(get_subject())
     app.run(debug=True)
