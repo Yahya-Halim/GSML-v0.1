@@ -3,77 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Grading System</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <title>Model Training Status</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha384-k6RqeWeci5ZR/Lv4MR0sA0FfDOMA8eQeW5aTO/xAu2lG4zEXmL5p5cK2ynW0ZgN" crossorigin="anonymous">
     <style>
         body {
-            margin: 50px;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
         }
-        .container {
+        h1 {
+            text-align: center;
+        }
+        .status {
+            margin: 20px auto;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
             max-width: 600px;
         }
-        .subject-box {
-            margin-bottom: 20px;
+        .status p {
+            margin: 5px 0;
+        }
+        .status span {
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1 class="text-center">AI Grading System</h1>
-        
-        <!-- Random subject display -->
-        <div id="random-subject" class="subject-box">
-            <p><strong>Subject:</strong> <span id="subject-content">Loading subject...</span></p>
-            <button id="get-subject-btn" class="btn btn-primary">Get Random Subject</button>
-        </div>
-
-        <!-- Answer form -->
-        <form id="submission-form">
-            <div class="form-group">
-                <label for="student_work">Your Answer:</label>
-                <textarea id="student_work" name="student_work" class="form-control" rows="4" placeholder="Enter your answer here"></textarea>
-            </div>
-            <button type="submit" class="btn btn-success">Submit Answer</button>
-        </form>
-
-        <!-- Predicted grade display -->
-        <div id="result" class="alert alert-info mt-4" style="display:none;">
-            <strong>Predicted Grade:</strong> <span id="predicted-grade"></span>
-        </div>
+    <h1>Model Training Status</h1>
+    <div class="status">
+        <p><span>Current Epoch:</span> <span id="current-epoch">0</span></p>
+        <p><span>Status:</span> <span id="training-status">Not started</span></p>
+        <p><span>Loaded Student Works:</span> <span id="loaded-works">0</span></p>
+        <p><span>Loaded Grades:</span> <span id="loaded-grades">0</span></p>
     </div>
-
     <script>
-        // Fetch random subject from the server
-        document.getElementById('get-subject-btn').addEventListener('click', function() {
-            fetch('/get_subject')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('subject-content').textContent = data.subject;
-                })
-                .catch(error => console.error('Error fetching subject:', error));
-        });
+        // Function to fetch training status from the server
+        async function fetchTrainingStatus() {
+            try {
+                const response = await fetch('/training_status');
+                const data = await response.json();
+                
+                // Update HTML with the training data
+                document.getElementById('current-epoch').innerText = data.current_epoch;
+                document.getElementById('training-status').innerText = data.training_status;
+                document.getElementById('loaded-works').innerText = data.loaded_works;
+                document.getElementById('loaded-grades').innerText = data.loaded_grades;
+            } catch (error) {
+                console.error('Error fetching training status:', error);
+            }
+        }
 
-        // Handle form submission
-        document.getElementById('submission-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const student_work = document.getElementById('student_work').value;
-            
-            fetch('/submit_answer', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: new URLSearchParams({
-                    'student_work': student_work
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('predicted-grade').textContent = data.predicted_grade;
-                document.getElementById('result').style.display = 'block';
-            })
-            .catch(error => console.error('Error submitting answer:', error));
-        });
+        // Fetch the training status every 2 seconds
+        setInterval(fetchTrainingStatus, 2000);
     </script>
 </body>
 </html>
