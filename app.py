@@ -1,60 +1,62 @@
 from flask import Flask, request, render_template, jsonify
-import mysql.connector
 from sklearn.linear_model import SGDClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 import random
-from dotenv import load_dotenv
-import os
-
+from openai import AzureOpenAI
 # Load environment variables from the .env file
-load_dotenv()
-
+client = AzureOpenAI(
+  azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT"), 
+  api_key=os.getenv("AZURE_OPENAI_API_KEY"),  
+  api_version="2024-02-01"
+)
 # Initialize Flask app
 app = Flask(__name__)
 
-# Function to connect to the database using environment variables
-def get_db_connection():
-    try:
-        return mysql.connector.connect(
-            host=os.getenv('DB_HOST'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            database=os.getenv('DB_NAME')
-        )
-    except mysql.connector.Error as err:
-        print(f"Error: {err}")
-        return None
 
-# Function to load data from the database
-def load_data():
-    db = get_db_connection()
-    if db is None:
-        return [], [], []
-
-    cursor = db.cursor()
-    cursor.execute("SELECT student_solution, grade, equation FROM student_submissions")
-    result = cursor.fetchall()
-    student_works = [row[0].strip() for row in result if row[0].strip()]
-    grades = [str(row[1]) for row in result]
-    equations = [row[2].strip() for row in result if row[2].strip()]
-    db.close()
-    
-    # Debug: Print loaded data
-    print("Loaded Student Works:", student_works)
-    print("Loaded Grades:", grades)
-    print("Loaded Equations:", equations)
-
-    return student_works, grades, equations
-
-# Initialize the vectorizer and classifier
-vectorizer = CountVectorizer(max_features=500, stop_words='english')
+vectorizer = CountVectorizer(stop_words=None)
 classifier = SGDClassifier()
+
+# Mock data for demonstration purposes
+student_works = ['example = value', 'test = case', 'sample = data', 'input = output', 'a + b = c']
+grades = ['A', 'B', 'C', 'D', 'A']
+
+def get_openai_question():
+    try:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt="Generate a random algebra question for students to solve:",
+            max_tokens=50
+        )
+        question = response.choices[0].text.strip()
+        return jsonify({'question': question})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+@app.route('/check_openai_answer', methods=['POST'])
+def check_openai_answer():
+    data = request.json
+    question = data.get('question')
+    answer = data.get('answer')
+
+    if not question or not answer:
+        return jsonify({'error': 'Invalid input'}), 400
+
+    try:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=f"Check if the answer '{answer}' correctly solves the algebra question: {question}",
+            max_tokens=50
+        )
+        result = response.choices[0].text.strip()
+        return jsonify({'result': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 # Custom training loop function
 def custom_training_loop(epochs=1):
-    student_works, grades, _ = load_data()
+    global student_works, grades
 
-    # Debug: Check loaded data
+    # Debug: Check mock data
     print("Loaded Student Works:", student_works)
     print("Loaded Grades:", grades)
 
@@ -62,19 +64,18 @@ def custom_training_loop(epochs=1):
         print("No data available for training.")
         return
 
-    print("Training with data...")
+    print("Training with mock data...")
     
     # Transform the data once before the loop
-    print(student_works)
-    # X = vectorizer.fit_transform(student_works)  # Fit the vectorizer to all data at once
-    # unique_classes = list(set(grades))  # Get unique classes for classification
+    X = vectorizer.fit_transform(student_works)  # Fit the vectorizer to all data at once
+    unique_classes = list(set(grades))  # Get unique classes for classification
     
-    # for epoch in range(epochs):
-    #     print(f"Epoch {epoch + 1}/{epochs}")
+    for epoch in range(epochs):
+        print(f"Epoch {epoch + 1}/{epochs}")
 
-    #     # Fit the classifier using all data
-    #     classifier.partial_fit(X, grades, classes=unique_classes)  # Incrementally fit the classifier
-    #     print("Training complete for this epoch.")
+        # Fit the classifier using all data
+        classifier.partial_fit(X, grades, classes=unique_classes)  # Incrementally fit the classifier
+        print("Training complete for this epoch.")
 
 # Train the model initially
 custom_training_loop(epochs=5)
@@ -90,17 +91,8 @@ def home():
 # Route to get a random subject (equation)
 @app.route('/get_subject', methods=['GET'])
 def get_subject():
-    db = get_db_connection()
-    if db is None:
-        return jsonify({'subject': 'Database connection error'}), 500
-    
-    cursor = db.cursor()
-    cursor.execute("SELECT equation FROM student_submissions")
-    student_works = cursor.fetchall()
-    db.close()
-
     if student_works:
-        random_subject = random.choice(student_works)[0]  # Randomly choose one student work
+        random_subject = random.choice(student_works)  # Randomly choose one student work
         return jsonify({'subject': random_subject})
     else:
         return jsonify({'subject': 'No subjects available'}), 404
@@ -120,31 +112,38 @@ def submit_answer():
     reward = 1 if predicted_grade == expected_grade else -1
     rewards.append((student_work, expected_grade, predicted_grade, reward))
 
-    # Save the submission to the database
-    db = get_db_connection()
-    if db is None:
-        return jsonify({'error': 'Database connection error'}), 500
-    
-    cursor = db.cursor()
-    cursor.execute("INSERT INTO student_submissions (student_solution, grade, equation) VALUES (%s, %s, %s)", 
-                   (student_work, predicted_grade, equation))  # Insert equation too
-    db.commit()
-    db.close()
-
     # Optionally, retrain the model with new data
     if len(rewards) % 10 == 0:  # Retrain every 10 submissions
         custom_training_loop(epochs=1)
 
-    return jsonify({'predicted_grade': predicted_grade, 'reward': reward, 'equation': equation})  # Return equation too
-@app.route('/training_status', methods=['GET'])
-def training_status():
-    # Assuming the global variables are updated during training
-    return jsonify({
-        'current_epoch': classifier.n_iter_,
-        'training_status': 'Training complete' if classifier.n_iter_ > 0 else 'Not started',
-        'loaded_works': len(load_data()[0]),  # Get the count of loaded student works
-        'loaded_grades': len(load_data()[1])   # Get the count of loaded grades
-    })
+    return jsonify({'predicted_grade': predicted_grade, 'reward': reward, 'equation': equation})
+
+# Route to generate an equation
+@app.route('/generate_equation', methods=['GET'])
+def generate_equation():
+    if not student_works:
+        return jsonify({'generated_equation': 'No equations available to generate.'})
+
+    # Use existing equations as the base for generation
+    random_equation = random.choice(student_works)
+
+    # Add variation to generate a new equation
+    new_equation = random_equation.replace('=', random.choice(['+', '-', '*', '/']))
+    new_equation = new_equation.replace('example', random.choice(['value', 'test', 'input']))
+
+    return jsonify({'generated_equation': new_equation})
+
+# Route for OpenAI API example
+@app.route('/openai_query', methods=['POST'])
+def openai_query():
+    prompt = request.form['prompt']
+    response = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=prompt,
+        max_tokens=50
+    )
+    return jsonify({'response': response.choices[0].text.strip()})
+
 # Run the Flask app
 if __name__ == '__main__':
     app.run(debug=True)

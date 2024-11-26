@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Model Training Status</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha384-k6RqeWeci5ZR/Lv4MR0sA0FfDOMA8eQeW5aTO/xAu2lG4zEXmL5p5cK2ynW0ZgN" crossorigin="anonymous">
+    <title>Algebra Question Checker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" 
+          integrity="sha384-k6RqeWeci5ZR/Lv4MR0sA0FfDOMA8eQeW5aTO/xAu2lG4zEXmL5p5cK2ynW0ZgN" 
+          crossorigin="anonymous">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,49 +17,108 @@
         h1 {
             text-align: center;
         }
-        .status {
+        .container {
+            max-width: 600px;
             margin: 20px auto;
-            padding: 10px;
+            padding: 20px;
+            background-color: #fff;
             border: 1px solid #ccc;
             border-radius: 5px;
-            background-color: #fff;
-            max-width: 600px;
         }
-        .status p {
-            margin: 5px 0;
+        .question {
+            font-size: 1.2em;
+            margin-bottom: 10px;
         }
-        .status span {
-            font-weight: bold;
+        .input-group {
+            margin: 15px 0;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .btn {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .response {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
         }
     </style>
 </head>
 <body>
-    <h1>Model Training Status</h1>
-    <div class="status">
-        <p><span>Current Epoch:</span> <span id="current-epoch">0</span></p>
-        <p><span>Status:</span> <span id="training-status">Not started</span></p>
-        <p><span>Loaded Student Works:</span> <span id="loaded-works">0</span></p>
-        <p><span>Loaded Grades:</span> <span id="loaded-grades">0</span></p>
+    <h1>Algebra Question Checker</h1>
+    <div class="container">
+        <div id="question-container" class="question">Loading a question...</div>
+        <div class="input-group">
+            <label for="answer">Your Answer:</label>
+            <input type="text" id="answer" placeholder="Type your answer here">
+        </div>
+        <button class="btn" id="submit-answer">Submit Answer</button>
+        <div id="response-container" class="response" style="display: none;"></div>
     </div>
+
     <script>
-        // Function to fetch training status from the server
-        async function fetchTrainingStatus() {
+        let currentQuestion = '';
+
+        // Fetch a random algebra question from the OpenAI API
+        async function fetchQuestion() {
             try {
-                const response = await fetch('/training_status');
+                const response = await fetch('/get_openai_question');
                 const data = await response.json();
-                
-                // Update HTML with the training data
-                document.getElementById('current-epoch').innerText = data.current_epoch;
-                document.getElementById('training-status').innerText = data.training_status;
-                document.getElementById('loaded-works').innerText = data.loaded_works;
-                document.getElementById('loaded-grades').innerText = data.loaded_grades;
+                currentQuestion = data.question;
+                document.getElementById('question-container').innerText = currentQuestion;
             } catch (error) {
-                console.error('Error fetching training status:', error);
+                console.error('Error fetching question:', error);
+                document.getElementById('question-container').innerText = 'Failed to load a question.';
             }
         }
 
-        // Fetch the training status every 2 seconds
-        setInterval(fetchTrainingStatus, 2000);
+        // Submit the user's answer to the OpenAI API for verification
+        async function submitAnswer() {
+            const userAnswer = document.getElementById('answer').value.trim();
+            if (!userAnswer) {
+                alert('Please enter an answer!');
+                return;
+            }
+
+            try {
+                const response = await fetch('/check_openai_answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: currentQuestion, answer: userAnswer })
+                });
+
+                const data = await response.json();
+                const responseContainer = document.getElementById('response-container');
+                responseContainer.style.display = 'block';
+                responseContainer.innerHTML = `<p><strong>Result:</strong> ${data.result}</p>`;
+            } catch (error) {
+                console.error('Error submitting answer:', error);
+                alert('Failed to check the answer. Please try again.');
+            }
+        }
+
+        // Event listener for submitting the answer
+        document.getElementById('submit-answer').addEventListener('click', submitAnswer);
+
+        // Load the first question
+        fetchQuestion();
     </script>
 </body>
 </html>
