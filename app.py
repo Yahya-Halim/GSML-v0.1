@@ -1,149 +1,183 @@
-from flask import Flask, request, render_template, jsonify
-from sklearn.linear_model import SGDClassifier
-from sklearn.feature_extraction.text import CountVectorizer
-import random
+import os
+import openai
 from openai import AzureOpenAI
-# Load environment variables from the .env file
+
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Set up the Azure OpenAI API endpoint and key
 client = AzureOpenAI(
   azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT"), 
   api_key=os.getenv("AZURE_OPENAI_API_KEY"),  
-  api_version="2024-02-01"
+  api_version="turbo-2024-04-09"
 )
-# Initialize Flask app
-app = Flask(__name__)
+
+response = client.chat.completions.create(
+    model="gpt-4", # model = "deployment_name".
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Does Azure OpenAI support customer managed keys?"},
+        {"role": "assistant", "content": "Yes, customer managed keys are supported by Azure OpenAI."},
+        {"role": "user", "content": "Do other Azure AI services support this too?"}
+    ]
+)
+
+print(response.choices[0].message.content)
 
 
-vectorizer = CountVectorizer(stop_words=None)
-classifier = SGDClassifier()
-
-# Mock data for demonstration purposes
-student_works = ['example = value', 'test = case', 'sample = data', 'input = output', 'a + b = c']
-grades = ['A', 'B', 'C', 'D', 'A']
-
-def get_openai_question():
-    try:
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt="Generate a random algebra question for students to solve:",
-            max_tokens=50
-        )
-        question = response.choices[0].text.strip()
-        return jsonify({'question': question})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-@app.route('/check_openai_answer', methods=['POST'])
-def check_openai_answer():
-    data = request.json
-    question = data.get('question')
-    answer = data.get('answer')
-
-    if not question or not answer:
-        return jsonify({'error': 'Invalid input'}), 400
-
-    try:
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=f"Check if the answer '{answer}' correctly solves the algebra question: {question}",
-            max_tokens=50
-        )
-        result = response.choices[0].text.strip()
-        return jsonify({'result': result})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 
-# Custom training loop function
-def custom_training_loop(epochs=1):
-    global student_works, grades
 
-    # Debug: Check mock data
-    print("Loaded Student Works:", student_works)
-    print("Loaded Grades:", grades)
 
-    if not student_works or not grades:
-        print("No data available for training.")
-        return
+# from flask import Flask, request, render_template, jsonify
+# from sklearn.linear_model import SGDClassifier
+# from sklearn.feature_extraction.text import CountVectorizer
+# import random
+# from openai import AzureOpenAI
 
-    print("Training with mock data...")
+# # Load environment variables from the .env file
+# client = AzureOpenAI(
+#   azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT"), 
+#   api_key=os.getenv("AZURE_OPENAI_API_KEY"),  
+#   api_version="2024-02-01"
+# )
+# # Initialize Flask app
+# app = Flask(__name__)
+
+
+# vectorizer = CountVectorizer(stop_words=None)
+# classifier = SGDClassifier()
+
+# # Mock data for demonstration purposes
+# student_works = ['example = value', 'test = case', 'sample = data', 'input = output', 'a + b = c']
+# grades = ['A', 'B', 'C', 'D', 'A']
+
+# def get_openai_question():
+#     try:
+#         response = openai.Completion.create(
+#             engine="text-davinci-003",
+#             prompt="Generate a random algebra question for students to solve:",
+#             max_tokens=50
+#         )
+#         question = response.choices[0].text.strip()
+#         return jsonify({'question': question})
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
+# @app.route('/check_openai_answer', methods=['POST'])
+# def check_openai_answer():
+#     data = request.json
+#     question = data.get('question')
+#     answer = data.get('answer')
+
+#     if not question or not answer:
+#         return jsonify({'error': 'Invalid input'}), 400
+
+#     try:
+#         response = openai.Completion.create(
+#             engine="text-davinci-003",
+#             prompt=f"Check if the answer '{answer}' correctly solves the algebra question: {question}",
+#             max_tokens=50
+#         )
+#         result = response.choices[0].text.strip()
+#         return jsonify({'result': result})
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
+
+
+# # Custom training loop function
+# def custom_training_loop(epochs=1):
+#     global student_works, grades
+
+#     # Debug: Check mock data
+#     print("Loaded Student Works:", student_works)
+#     print("Loaded Grades:", grades)
+
+#     if not student_works or not grades:
+#         print("No data available for training.")
+#         return
+
+#     print("Training with mock data...")
     
-    # Transform the data once before the loop
-    X = vectorizer.fit_transform(student_works)  # Fit the vectorizer to all data at once
-    unique_classes = list(set(grades))  # Get unique classes for classification
+#     # Transform the data once before the loop
+#     X = vectorizer.fit_transform(student_works)  # Fit the vectorizer to all data at once
+#     unique_classes = list(set(grades))  # Get unique classes for classification
     
-    for epoch in range(epochs):
-        print(f"Epoch {epoch + 1}/{epochs}")
+#     for epoch in range(epochs):
+#         print(f"Epoch {epoch + 1}/{epochs}")
 
-        # Fit the classifier using all data
-        classifier.partial_fit(X, grades, classes=unique_classes)  # Incrementally fit the classifier
-        print("Training complete for this epoch.")
+#         # Fit the classifier using all data
+#         classifier.partial_fit(X, grades, classes=unique_classes)  # Incrementally fit the classifier
+#         print("Training complete for this epoch.")
 
-# Train the model initially
-custom_training_loop(epochs=5)
+# # Train the model initially
+# custom_training_loop(epochs=5)
 
-# Initialize reward tracking
-rewards = []
+# # Initialize reward tracking
+# rewards = []
 
-# Route for the home page
-@app.route('/')
-def home():
-    return render_template('index.html')
+# # Route for the home page
+# @app.route('/')
+# def home():
+#     return render_template('index.html')
 
-# Route to get a random subject (equation)
-@app.route('/get_subject', methods=['GET'])
-def get_subject():
-    if student_works:
-        random_subject = random.choice(student_works)  # Randomly choose one student work
-        return jsonify({'subject': random_subject})
-    else:
-        return jsonify({'subject': 'No subjects available'}), 404
+# # Route to get a random subject (equation)
+# @app.route('/get_subject', methods=['GET'])
+# def get_subject():
+#     if student_works:
+#         random_subject = random.choice(student_works)  # Randomly choose one student work
+#         return jsonify({'subject': random_subject})
+#     else:
+#         return jsonify({'subject': 'No subjects available'}), 404
 
-# Route to submit a student's answer and grade it
-@app.route('/submit_answer', methods=['POST'])
-def submit_answer():
-    student_work = request.form['student_work']
-    expected_grade = request.form['expected_grade']
-    equation = request.form['equation']  # Retrieve equation from the request
+# # Route to submit a student's answer and grade it
+# @app.route('/submit_answer', methods=['POST'])
+# def submit_answer():
+#     student_work = request.form['student_work']
+#     expected_grade = request.form['expected_grade']
+#     equation = request.form['equation']  # Retrieve equation from the request
 
-    # Predict the grade
-    X_new = vectorizer.transform([student_work])  # Transform the new student work
-    predicted_grade = classifier.predict(X_new)[0]
+#     # Predict the grade
+#     X_new = vectorizer.transform([student_work])  # Transform the new student work
+#     predicted_grade = classifier.predict(X_new)[0]
 
-    # Calculate reward
-    reward = 1 if predicted_grade == expected_grade else -1
-    rewards.append((student_work, expected_grade, predicted_grade, reward))
+#     # Calculate reward
+#     reward = 1 if predicted_grade == expected_grade else -1
+#     rewards.append((student_work, expected_grade, predicted_grade, reward))
 
-    # Optionally, retrain the model with new data
-    if len(rewards) % 10 == 0:  # Retrain every 10 submissions
-        custom_training_loop(epochs=1)
+#     # Optionally, retrain the model with new data
+#     if len(rewards) % 10 == 0:  # Retrain every 10 submissions
+#         custom_training_loop(epochs=1)
 
-    return jsonify({'predicted_grade': predicted_grade, 'reward': reward, 'equation': equation})
+#     return jsonify({'predicted_grade': predicted_grade, 'reward': reward, 'equation': equation})
 
-# Route to generate an equation
-@app.route('/generate_equation', methods=['GET'])
-def generate_equation():
-    if not student_works:
-        return jsonify({'generated_equation': 'No equations available to generate.'})
+# # Route to generate an equation
+# @app.route('/generate_equation', methods=['GET'])
+# def generate_equation():
+#     if not student_works:
+#         return jsonify({'generated_equation': 'No equations available to generate.'})
 
-    # Use existing equations as the base for generation
-    random_equation = random.choice(student_works)
+#     # Use existing equations as the base for generation
+#     random_equation = random.choice(student_works)
 
-    # Add variation to generate a new equation
-    new_equation = random_equation.replace('=', random.choice(['+', '-', '*', '/']))
-    new_equation = new_equation.replace('example', random.choice(['value', 'test', 'input']))
+#     # Add variation to generate a new equation
+#     new_equation = random_equation.replace('=', random.choice(['+', '-', '*', '/']))
+#     new_equation = new_equation.replace('example', random.choice(['value', 'test', 'input']))
 
-    return jsonify({'generated_equation': new_equation})
+#     return jsonify({'generated_equation': new_equation})
 
-# Route for OpenAI API example
-@app.route('/openai_query', methods=['POST'])
-def openai_query():
-    prompt = request.form['prompt']
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=prompt,
-        max_tokens=50
-    )
-    return jsonify({'response': response.choices[0].text.strip()})
+# # Route for OpenAI API example
+# @app.route('/openai_query', methods=['POST'])
+# def openai_query():
+#     prompt = request.form['prompt']
+#     response = openai.Completion.create(
+#         engine="text-davinci-003",
+#         prompt=prompt,
+#         max_tokens=50
+#     )
+#     return jsonify({'response': response.choices[0].text.strip()})
 
-# Run the Flask app
-if __name__ == '__main__':
-    app.run(debug=True)
+# # Run the Flask app
+# if __name__ == '__main__':
+#     app.run(debug=True)
