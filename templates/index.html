@@ -3,122 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Algebra Question Checker</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" 
-          integrity="sha384-k6RqeWeci5ZR/Lv4MR0sA0FfDOMA8eQeW5aTO/xAu2lG4zEXmL5p5cK2ynW0ZgN" 
-          crossorigin="anonymous">
+    <title>Student Answer Feedback</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            text-align: center;
+            margin: 20px;
         }
         .container {
-            max-width: 600px;
-            margin: 20px auto;
+            max-width: 900px;
+            margin: 0 auto;
             padding: 20px;
-            background-color: #fff;
+            border: 7px solid #000000;
+            border-radius: 10px;
+        }
+        table {
+            max-width: 900px;
+            margin: 0 auto;
+            border-collapse: collapse;
+            border-radius: 5px;
+            text-align: center;
+            background-color: #cac9c9;
+            color: #333;
+
+            margin-top: 20px;
+        }
+        table, th, td {
             border: 1px solid #ccc;
-            border-radius: 5px;
         }
-        .question {
-            font-size: 1.2em;
-            margin-bottom: 10px;
-        }
-        .input-group {
-            margin: 15px 0;
-        }
-        .input-group label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        .input-group input {
-            width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
-        }
-        .btn {
-            padding: 10px 15px;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .btn:hover {
-            background-color: #0056b3;
-        }
-        .response {
-            margin-top: 15px;
+        th, td {
             padding: 10px;
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            text-align: left;
         }
     </style>
 </head>
 <body>
-    <h1>Algebra Question Checker</h1>
     <div class="container">
-        <div id="question-container" class="question">Loading a question...</div>
-        <div class="input-group">
-            <label for="answer">Your Answer:</label>
-            <input type="text" id="answer" placeholder="Type your answer here">
-        </div>
-        <button class="btn" id="submit-answer">Submit Answer</button>
-        <div id="response-container" class="response" style="display: none;"></div>
+        <h1>Math Questions</h1>
+        <form method="post">
+            <label for="question_id">Choose a Question:</label>
+            <select id="question_id" name="question_id" required>
+                {% for question in questions %}
+                <option value="{{ loop.index0 }}">{{ question.question }}</option>
+                {% endfor %}
+            </select>
+            <br><br>
+            <label for="answer">Student Answer:</label>
+            <input type="text" id="answer" name="answer" required>
+            <br><br>
+            <button type="submit">Submit</button>
+        </form>
+
+        {% if responses %}
+        <h2>Responses</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Question</th>
+                    <th>Correct Answer</th>
+                    <th>Student Answer</th>
+                    <th>Feedback</th>
+                    <th>Grade</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for response in responses %}
+                <tr>
+                    <td>{{ response.question }}</td>
+                    <td>{{ response.correct_answer }}</td>
+                    <td>{{ response.student_answer }}</td>
+                    <td>{{ response.feedback }}</td>
+                    <td>
+                        <input 
+                            type="text" 
+                            class="grade-input" 
+                            data-question="{{ response.question }}" 
+                            value="{{ response.grade }}">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
     </div>
 
     <script>
-        let currentQuestion = '';
+        document.addEventListener("DOMContentLoaded", () => {
+            const gradeInputs = document.querySelectorAll(".grade-input");
 
-        // Fetch a random algebra question from the OpenAI API
-        async function fetchQuestion() {
-            try {
-                const response = await fetch('/get_openai_question');
-                const data = await response.json();
-                currentQuestion = data.question;
-                document.getElementById('question-container').innerText = currentQuestion;
-            } catch (error) {
-                console.error('Error fetching question:', error);
-                document.getElementById('question-container').innerText = 'Failed to load a question.';
-            }
-        }
+            gradeInputs.forEach(input => {
+                input.addEventListener("change", () => {
+                    const question = input.getAttribute("data-question");
+                    const grade = input.value;
 
-        // Submit the user's answer to the OpenAI API for verification
-        async function submitAnswer() {
-            const userAnswer = document.getElementById('answer').value.trim();
-            if (!userAnswer) {
-                alert('Please enter an answer!');
-                return;
-            }
-
-            try {
-                const response = await fetch('/check_openai_answer', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question: currentQuestion, answer: userAnswer })
+                    // Send the updated grade to the server
+                    fetch("/update_grade", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ question, grade })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === "success") {
+                            alert("Grade updated successfully!");
+                        } else {
+                            alert("Failed to update grade.");
+                        }
+                    })
+                    .catch(error => console.error("Error:", error));
                 });
-
-                const data = await response.json();
-                const responseContainer = document.getElementById('response-container');
-                responseContainer.style.display = 'block';
-                responseContainer.innerHTML = `<p><strong>Result:</strong> ${data.result}</p>`;
-            } catch (error) {
-                console.error('Error submitting answer:', error);
-                alert('Failed to check the answer. Please try again.');
-            }
-        }
-
-        // Event listener for submitting the answer
-        document.getElementById('submit-answer').addEventListener('click', submitAnswer);
-
-        // Load the first question
-        fetchQuestion();
+            });
+        });
     </script>
 </body>
 </html>
