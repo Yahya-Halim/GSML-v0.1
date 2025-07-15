@@ -1,123 +1,263 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Student Answer Feedback</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    .fade {
-      transition: opacity 0.5s ease-in-out;
-    }
-  </style>
-</head>
-<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center px-4 py-10">
-  <div class="w-full max-w-4xl bg-slate-800 p-8 rounded-xl shadow-lg">
-    <h1 class="text-3xl font-bold text-center text-white mb-8">Math Questions</h1>
-
-    <form method="post" class="space-y-6">
-      <div>
-        <label for="question_id" class="block text-slate-300 mb-1">Choose a Question:</label>
-        <select id="question_id" name="question_id" required class="w-full p-3 rounded bg-white text-slate-800">
-          {% for question in questions %}
-          <option value="{{ loop.index0 }}">{{ question.question }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div>
-        <label for="answer" class="block text-slate-300 mb-1">Student Answer:</label>
-        <input type="text" id="answer" name="answer" required class="w-full p-3 rounded bg-white text-slate-800"/>
-      </div>
-
-      <button type="submit" class="bg-blue-600 hover:bg-blue-700 transition text-white px-6 py-3 rounded-md font-semibold">
-        Submit
-      </button>
-    </form>
-
-    <!-- Alert Box -->
-    <div id="alert-box" class="hidden mt-6 px-4 py-3 rounded text-white fade"></div>
-
-    {% if responses %}
-    <h2 class="text-2xl font-semibold text-white mt-10 mb-4">Responses</h2>
-    <div class="overflow-x-auto">
-      <table class="w-full bg-white text-slate-800 rounded shadow-md overflow-hidden">
-        <thead class="bg-blue-600 text-white">
-          <tr>
-            <th class="px-4 py-3 text-left">Question</th>
-            <th class="px-4 py-3 text-left">Correct Answer</th>
-            <th class="px-4 py-3 text-left">Student Answer</th>
-            <th class="px-4 py-3 text-left">Feedback</th>
-            <th class="px-4 py-3 text-left">Grade</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for response in responses %}
-          <tr class="hover:bg-slate-100">
-            <td class="px-4 py-2">{{ response.question }}</td>
-            <td class="px-4 py-2">{{ response.correct_answer }}</td>
-            <td class="px-4 py-2">{{ response.student_answer }}</td>
-            <td class="px-4 py-2">{{ response.feedback }}</td>
-            <td class="px-4 py-2">
-              <input 
-                type="text" 
-                class="grade-input w-20 p-2 border border-slate-400 rounded text-slate-800" 
-                data-question="{{ response.question }}" 
-                value="{{ response.grade }}">
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% endif %}
-  </div>
-
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const gradeInputs = document.querySelectorAll(".grade-input");
-      const alertBox = document.getElementById("alert-box");
-
-      function showAlert(message, isSuccess = true) {
-        alertBox.textContent = message;
-        alertBox.className = `fade mt-6 px-4 py-3 rounded ${
-          isSuccess ? 'bg-green-600' : 'bg-red-600'
-        } text-white`;
-        alertBox.style.opacity = 1;
-        alertBox.classList.remove("hidden");
-
-        setTimeout(() => {
-          alertBox.style.opacity = 0;
-          setTimeout(() => alertBox.classList.add("hidden"), 500);
-        }, 2000);
-      }
-
-      gradeInputs.forEach(input => {
-        input.addEventListener("change", () => {
-          const question = input.getAttribute("data-question");
-          const grade = input.value;
-
-          fetch("/update_grade", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ question, grade })
-          })
-          .then(response => response.json())
-          .then(data => {
-            if (data.status === "success") {
-              showAlert("Grade updated successfully!", true);
-            } else {
-              showAlert("Failed to update grade.", false);
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSML - Grade Student Math Learning</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    }
+                }
             }
-          })
-          .catch(() => {
-            showAlert("Error updating grade.", false);
-          });
+        }
+    </script>
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        @keyframes glow {
+            from { box-shadow: 0 0 20px #3b82f6; }
+            to { box-shadow: 0 0 30px #1d4ed8, 0 0 40px #1d4ed8; }
+        }
+        .gradient-bg {
+            background: linear-gradient(-45deg, #1e1b4b, #312e81, #1e40af, #1d4ed8);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .chat-container {
+            transition: all 0.3s ease;
+        }
+        .chat-hidden {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        .chat-visible {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-white overflow-x-hidden">
+    <!-- Navigation -->
+    <nav class="bg-black bg-opacity-30 backdrop-blur-md p-4 fixed w-full top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-blue-400">GSML</h1>
+            <div class="space-x-4">
+                <a href="#features" class="hover:text-blue-400 transition">Features</a>
+                <a href="#about" class="hover:text-blue-400 transition">About</a>
+                <a href="templates/index.html" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">Start Quiz</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="min-h-screen flex items-center justify-center px-4 pt-20">
+        <div class="text-center max-w-4xl mx-auto">
+            <div class="animate-float mb-8">
+                <div class="text-8xl mb-4">🧮</div>
+            </div>
+            <h1 class="text-6xl md:text-8xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
+                GSML
+            </h1>
+            <h2 class="text-2xl md:text-4xl mb-8 text-gray-300">
+                Grade Student Math Learning
+            </h2>
+            <p class="text-xl md:text-2xl mb-12 text-gray-400 max-w-3xl mx-auto">
+                AI-Powered Interactive Math Learning Platform with Real-time Feedback and Intelligent Grading
+            </p>
+            <div class="space-x-4">
+                <a href="templates/index.html" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-xl font-semibold transition transform hover:scale-105 animate-glow">
+                    Start Learning
+                </a>
+                <button onclick="toggleChat()" class="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-xl font-semibold transition transform hover:scale-105">
+                    Chat with AI
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 px-4">
+        <div class="container mx-auto max-w-6xl">
+            <h2 class="text-4xl md:text-6xl font-bold text-center mb-16 text-blue-400">Features</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-black bg-opacity-30 backdrop-blur-md p-8 rounded-xl hover:transform hover:scale-105 transition">
+                    <div class="text-4xl mb-4">🤖</div>
+                    <h3 class="text-2xl font-bold mb-4 text-blue-400">AI-Powered Feedback</h3>
+                    <p class="text-gray-300">Get instant, personalized feedback on your math solutions using advanced Azure OpenAI technology.</p>
+                </div>
+                <div class="bg-black bg-opacity-30 backdrop-blur-md p-8 rounded-xl hover:transform hover:scale-105 transition">
+                    <div class="text-4xl mb-4">📊</div>
+                    <h3 class="text-2xl font-bold mb-4 text-purple-400">Smart Grading</h3>
+                    <p class="text-gray-300">Automatic grading system with manual adjustment capabilities for precise assessment.</p>
+                </div>
+                <div class="bg-black bg-opacity-30 backdrop-blur-md p-8 rounded-xl hover:transform hover:scale-105 transition">
+                    <div class="text-4xl mb-4">📈</div>
+                    <h3 class="text-2xl font-bold mb-4 text-green-400">Progress Tracking</h3>
+                    <p class="text-gray-300">Track your learning progress with detailed response history and performance analytics.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="py-20 px-4">
+        <div class="container mx-auto max-w-4xl text-center">
+            <h2 class="text-4xl md:text-6xl font-bold mb-16 text-purple-400">About GSML</h2>
+            <div class="bg-black bg-opacity-30 backdrop-blur-md p-12 rounded-xl">
+                <p class="text-xl md:text-2xl text-gray-300 mb-8">
+                    GSML is a cutting-edge educational platform that revolutionizes math learning through artificial intelligence. 
+                    Our system provides 20 carefully crafted algebra questions with real-time AI feedback.
+                </p>
+                <div class="grid md:grid-cols-2 gap-8 text-left">
+                    <div>
+                        <h3 class="text-2xl font-bold mb-4 text-blue-400">Technology Stack</h3>
+                        <ul class="space-y-2 text-gray-300">
+                            <li>• Flask Web Framework</li>
+                            <li>• Azure OpenAI Integration</li>
+                            <li>• Modern Responsive Design</li>
+                            <li>• Real-time Chat System</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold mb-4 text-green-400">Key Benefits</h3>
+                        <ul class="space-y-2 text-gray-300">
+                            <li>• Personalized Learning Experience</li>
+                            <li>• Instant Feedback & Grading</li>
+                            <li>• Progress Monitoring</li>
+                            <li>• Interactive Problem Solving</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Chatbot -->
+    <div id="chatbot" class="fixed right-4 bottom-4 w-80 h-96 bg-black bg-opacity-90 backdrop-blur-md rounded-xl shadow-2xl chat-container chat-hidden z-50">
+        <div class="p-4 border-b border-gray-700">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-blue-400">AI Assistant</h3>
+                <button onclick="toggleChat()" class="text-gray-400 hover:text-white">✕</button>
+            </div>
+        </div>
+        <div id="chat-messages" class="p-4 h-64 overflow-y-auto space-y-3">
+            <div class="bg-blue-600 bg-opacity-30 p-3 rounded-lg">
+                <p class="text-sm">Hi! I'm your AI assistant. Ask me anything about GSML or math learning!</p>
+            </div>
+        </div>
+        <div class="p-4 border-t border-gray-700">
+            <div class="flex space-x-2">
+                <input type="text" id="chat-input" placeholder="Ask me anything..." 
+                       class="flex-1 bg-gray-800 text-white p-2 rounded-lg border border-gray-600 focus:border-blue-400 outline-none">
+                <button onclick="sendMessage()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Toggle Button -->
+    <button id="chat-toggle" onclick="toggleChat()" class="fixed right-4 bottom-4 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition transform hover:scale-110 z-40">
+        💬
+    </button>
+
+    <script>
+        let chatVisible = false;
+
+        function toggleChat() {
+            const chatbot = document.getElementById('chatbot');
+            const chatToggle = document.getElementById('chat-toggle');
+            
+            chatVisible = !chatVisible;
+            
+            if (chatVisible) {
+                chatbot.classList.remove('chat-hidden');
+                chatbot.classList.add('chat-visible');
+                chatToggle.style.display = 'none';
+            } else {
+                chatbot.classList.remove('chat-visible');
+                chatbot.classList.add('chat-hidden');
+                chatToggle.style.display = 'block';
+            }
+        }
+
+        function addMessage(message, isUser = false) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `p-3 rounded-lg ${isUser ? 'bg-green-600 bg-opacity-30 ml-4' : 'bg-blue-600 bg-opacity-30 mr-4'}`;
+            messageDiv.innerHTML = `<p class="text-sm">${message}</p>`;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            addMessage(message, true);
+            input.value = '';
+            
+            // Show typing indicator
+            addMessage('Typing...', false);
+            
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Remove typing indicator
+                const messages = document.getElementById('chat-messages');
+                messages.removeChild(messages.lastChild);
+                
+                if (data.response) {
+                    addMessage(data.response, false);
+                } else {
+                    addMessage('Sorry, I encountered an error. Please try again.', false);
+                }
+            })
+            .catch(error => {
+                // Remove typing indicator
+                const messages = document.getElementById('chat-messages');
+                messages.removeChild(messages.lastChild);
+                addMessage('Sorry, I encountered an error. Please try again.', false);
+            });
+        }
+
+        // Allow Enter key to send message
+        document.getElementById('chat-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
         });
-      });
-    });
-  </script>
+
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
 </body>
 </html>

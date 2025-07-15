@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render, request
+from flask import Flask, render_template, request
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 
@@ -99,7 +99,7 @@ def index():
             'grade': grade
         })
 
-    return render("index.html", questions=questions, responses=responses)
+    return render_template("index.html", questions=questions, responses=responses)
 @app.route("/update_grade", methods=["POST"])
 def update_grade():
     data = request.get_json()

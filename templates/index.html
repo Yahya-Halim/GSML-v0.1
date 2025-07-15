@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Answer Feedback</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .fade {
+      transition: opacity 0.5s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center px-4 py-10">
+  <div class="w-full max-w-4xl bg-slate-800 p-8 rounded-xl shadow-lg">
+    <h1 class="text-3xl font-bold text-center text-white mb-8">Math Questions</h1>
+
+    <form method="post" class="space-y-6">
+      <div>
+        <label for="question_id" class="block text-slate-300 mb-1">Choose a Question:</label>
+        <select id="question_id" name="question_id" required class="w-full p-3 rounded bg-white text-slate-800">
+          {% for question in questions %}
+          <option value="{{ loop.index0 }}">{{ question.question }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="answer" class="block text-slate-300 mb-1">Student Answer:</label>
+        <input type="text" id="answer" name="answer" required class="w-full p-3 rounded bg-white text-slate-800"/>
+      </div>
+
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 transition text-white px-6 py-3 rounded-md font-semibold">
+        Submit
+      </button>
+    </form>
+
+    <!-- Alert Box -->
+    <div id="alert-box" class="hidden mt-6 px-4 py-3 rounded text-white fade"></div>
+
+    {% if responses %}
+    <h2 class="text-2xl font-semibold text-white mt-10 mb-4">Responses</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full bg-white text-slate-800 rounded shadow-md overflow-hidden">
+        <thead class="bg-blue-600 text-white">
+          <tr>
+            <th class="px-4 py-3 text-left">Question</th>
+            <th class="px-4 py-3 text-left">Correct Answer</th>
+            <th class="px-4 py-3 text-left">Student Answer</th>
+            <th class="px-4 py-3 text-left">Feedback</th>
+            <th class="px-4 py-3 text-left">Grade</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for response in responses %}
+          <tr class="hover:bg-slate-100">
+            <td class="px-4 py-2">{{ response.question }}</td>
+            <td class="px-4 py-2">{{ response.correct_answer }}</td>
+            <td class="px-4 py-2">{{ response.student_answer }}</td>
+            <td class="px-4 py-2">{{ response.feedback }}</td>
+            <td class="px-4 py-2">
+              <input 
+                type="text" 
+                class="grade-input w-20 p-2 border border-slate-400 rounded text-slate-800" 
+                data-question="{{ response.question }}" 
+                value="{{ response.grade }}">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const gradeInputs = document.querySelectorAll(".grade-input");
+      const alertBox = document.getElementById("alert-box");
+
+      function showAlert(message, isSuccess = true) {
+        alertBox.textContent = message;
+        alertBox.className = `fade mt-6 px-4 py-3 rounded ${
+          isSuccess ? 'bg-green-600' : 'bg-red-600'
+        } text-white`;
+        alertBox.style.opacity = 1;
+        alertBox.classList.remove("hidden");
+
+        setTimeout(() => {
+          alertBox.style.opacity = 0;
+          setTimeout(() => alertBox.classList.add("hidden"), 500);
+        }, 2000);
+      }
+
+      gradeInputs.forEach(input => {
+        input.addEventListener("change", () => {
+          const question = input.getAttribute("data-question");
+          const grade = input.value;
+
+          fetch("/update_grade", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ question, grade })
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.status === "success") {
+              showAlert("Grade updated successfully!", true);
+            } else {
+              showAlert("Failed to update grade.", false);
+            }
+          })
+          .catch(() => {
+            showAlert("Error updating grade.", false);
+          });
+        });
+      });
+    });
+  </script>
+</body>
+</html>
